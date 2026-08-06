@@ -1,48 +1,29 @@
 """
 model_loader.py
 
-Loads the trained Land-Cover U-Net.
+Loads the ONNX Land-Cover model.
 """
 
-import torch
+import onnxruntime as ort
 
-from app.models.model import UNet
 from app.services.huggingface.loader import HuggingFaceLoader
 
 
 class ModelLoader:
 
-    _model = None
-
-    DEVICE = torch.device("cpu")
+    _session = None
 
     @classmethod
-    def load_unet(cls):
+    def load_session(cls):
 
-        if cls._model is not None:
-            return cls._model
+        if cls._session is not None:
+            return cls._session
 
-        # Download from Hugging Face if needed
         model_path = HuggingFaceLoader.get_model_path()
 
-        model = UNet(
-            in_channels=5,
-            num_classes=11,
-            pretrained=False,
-        )
-
-        state_dict = torch.load(
+        cls._session = ort.InferenceSession(
             model_path,
-            map_location=cls.DEVICE,
-            weights_only=True,
+            providers=["CPUExecutionProvider"],
         )
 
-        model.load_state_dict(state_dict)
-
-        model.to(cls.DEVICE)
-
-        model.eval()
-
-        cls._model = model
-
-        return cls._model
+        return cls._session

@@ -1,24 +1,21 @@
 """
 tensor.py
 
-Tensor preparation utilities.
+Prepares the exact NumPy input expected by the
+ONNX Land-Cover U-Net.
 
-Converts normalized NumPy arrays into the exact tensor
-expected by the trained U-Net.
-
-Final output:
+Final output
 
 (1,5,256,256)
 """
 
-import torch
-import torch.nn.functional as F
+import cv2
+import numpy as np
 
 from .normalize import (
     normalize_sentinel,
     normalize_thermal,
 )
-
 
 PATCH_SIZE = 256
 
@@ -27,9 +24,9 @@ PATCH_SIZE = 256
 # Resize
 # ---------------------------------------------------------
 
-def resize_tensor(tensor):
+def resize_channels(image):
     """
-    Resize tensor.
+    Resize image channel-wise.
 
     Input
 
@@ -40,24 +37,33 @@ def resize_tensor(tensor):
         (C,256,256)
     """
 
-    if tensor.ndim != 3:
+    if image.ndim != 3:
         raise ValueError(
-            f"Expected tensor (C,H,W), got {tensor.shape}"
+            f"Expected (C,H,W), got {image.shape}"
         )
 
-    tensor = tensor.unsqueeze(0)
-
-    tensor = F.interpolate(
-        tensor,
-        size=(
+    resized = np.empty(
+        (
+            image.shape[0],
             PATCH_SIZE,
             PATCH_SIZE,
         ),
-        mode="bilinear",
-        align_corners=False,
+        dtype=np.float32,
     )
 
-    return tensor.squeeze(0)
+    for c in range(image.shape[0]):
+
+        resized[c] = cv2.resize(
+
+            image[c],
+
+            (PATCH_SIZE, PATCH_SIZE),
+
+            interpolation=cv2.INTER_LINEAR,
+
+        )
+
+    return resized
 
 
 # ---------------------------------------------------------
@@ -65,21 +71,10 @@ def resize_tensor(tensor):
 # ---------------------------------------------------------
 
 def prepare_sentinel(sentinel):
-    """
-    Prepare Sentinel tensor.
-
-    Returns
-
-        (4,256,256)
-    """
 
     sentinel = normalize_sentinel(sentinel)
 
-    tensor = torch.from_numpy(
-        sentinel
-    ).float()
-
-    return resize_tensor(tensor)
+    return resize_channels(sentinel)
 
 
 # ---------------------------------------------------------
@@ -87,23 +82,15 @@ def prepare_sentinel(sentinel):
 # ---------------------------------------------------------
 
 def prepare_thermal(thermal):
-    """
-    Prepare thermal tensor.
-
-    Returns
-
-        (1,256,256)
-    """
 
     thermal = normalize_thermal(thermal)
 
-    tensor = torch.from_numpy(
-        thermal
-    ).float()
+    thermal = np.expand_dims(
+        thermal,
+        axis=0,
+    )
 
-    tensor = tensor.unsqueeze(0)
-
-    return resize_tensor(tensor)
+    return resize_channels(thermal)
 
 
 # ---------------------------------------------------------
@@ -115,40 +102,37 @@ def build_model_input(
     thermal,
 ):
     """
-    Build the exact input expected by the U-Net.
-
-    Channel order
-
-        0 B4
-        1 B3
-        2 B2
-        3 B8
-        4 Thermal
-
     Returns
 
         (1,5,256,256)
+
+    float32
     """
 
-    sentinel_tensor = prepare_sentinel(
-        sentinel
-    )
+    sentinel = prepare_sentinel(sentinel)
 
-    thermal_tensor = prepare_thermal(
-        thermal
-    )
+    thermal = prepare_thermal(thermal)
 
-    combined = torch.cat(
+    combined = np.concatenate(
+
         [
-            sentinel_tensor,
-            thermal_tensor,
+            sentinel,
+            thermal,
         ],
-        dim=0,
-    )
+
+        axis=0,
+
+    ).astype(np.float32)
 
     if combined.shape[0] != 5:
+
         raise RuntimeError(
+
             f"Expected 5 channels, got {combined.shape[0]}"
+
         )
 
-    return combined.unsqueeze(0)
+    return np.expand_dims(
+        combined,
+        axis=0,
+    )

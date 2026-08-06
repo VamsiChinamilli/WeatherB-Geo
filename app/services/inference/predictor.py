@@ -1,17 +1,16 @@
 """
 predictor.py
 
-Runs Land-Cover U-Net inference.
+Runs Land-Cover ONNX inference.
 
 Responsibilities
 ----------------
-- Accept a prepared tensor.
-- Run the model.
-- Compute probabilities.
-- Compute segmentation mask.
+- Accept prepared model input.
+- Run ONNX Runtime inference.
+- Return raw logits.
 """
 
-import torch
+import numpy as np
 
 from .model_loader import ModelLoader
 
@@ -20,15 +19,31 @@ class LandCoverPredictor:
 
     def __init__(self):
 
-        self.model = ModelLoader.load_unet()
+        self.session = ModelLoader.load_session()
 
-        self.device = ModelLoader.DEVICE
+        self.input_name = self.session.get_inputs()[0].name
 
-    @torch.no_grad()
+        self.output_name = self.session.get_outputs()[0].name
+
     def predict(self, model_input):
 
-        model_input = model_input.to(self.device)
+        # Torch tensor -> NumPy (if necessary)
+        if hasattr(model_input, "detach"):
+            model_input = model_input.detach().cpu().numpy()
 
-        logits = self.model(model_input)
+        model_input = np.asarray(
+            model_input,
+            dtype=np.float32,
+        )
+
+        logits = self.session.run(
+
+            [self.output_name],
+
+            {
+                self.input_name: model_input
+            }
+
+        )[0]
 
         return logits
