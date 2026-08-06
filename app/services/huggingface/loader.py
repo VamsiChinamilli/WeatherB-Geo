@@ -1,19 +1,12 @@
 """
 loader.py
 
-Downloads the trained model from Hugging Face
-only once.
-
-Responsibilities
-----------------
-- Download weights_only.pth if missing.
-- Cache locally.
-- Return local model path.
+Downloads the ONNX model repository from Hugging Face.
 """
 
 from pathlib import Path
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import snapshot_download
 
 from app.config.config import (
     HF_REPO_ID,
@@ -28,29 +21,22 @@ class HuggingFaceLoader:
         / "models"
     )
 
-    MODEL_PATH = MODEL_DIR / HF_MODEL_FILENAME
-
     @classmethod
     def get_model_path(cls):
-        """
-        Returns the local path to the model.
-
-        Downloads it only once if necessary.
-        """
 
         cls.MODEL_DIR.mkdir(
             parents=True,
             exist_ok=True,
         )
 
-        if cls.MODEL_PATH.exists():
-            return cls.MODEL_PATH
+        model_path = cls.MODEL_DIR / HF_MODEL_FILENAME
 
-        downloaded = hf_hub_download(
+        if model_path.exists():
+            return model_path
+
+        snapshot_download(
 
             repo_id=HF_REPO_ID,
-
-            filename=HF_MODEL_FILENAME,
 
             local_dir=cls.MODEL_DIR,
 
@@ -58,4 +44,4 @@ class HuggingFaceLoader:
 
         )
 
-        return Path(downloaded)
+        return model_path
