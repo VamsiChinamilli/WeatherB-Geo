@@ -1,5 +1,6 @@
 earthengine_api==1.7.26
 fastapi==0.141.1
+uvicorn[standard]==0.35.0
 huggingface_hub==1.26.0
 numpy==2.5.1
 pydantic==2.13.4
