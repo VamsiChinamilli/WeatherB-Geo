@@ -11,8 +11,7 @@ ai_env/
 # Environment variables
 .env
 
-# Model cache
-models/
+
 
 # Hugging Face cache
 .huggingface/
