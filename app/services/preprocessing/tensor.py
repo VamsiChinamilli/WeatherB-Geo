@@ -6,11 +6,11 @@ ONNX Land-Cover U-Net.
 
 Final output
 
-(1,5,256,256)
+    (1,5,256,256)
 """
 
-import cv2
 import numpy as np
+from PIL import Image
 
 from .normalize import (
     normalize_sentinel,
@@ -53,14 +53,16 @@ def resize_channels(image):
 
     for c in range(image.shape[0]):
 
-        resized[c] = cv2.resize(
+        channel = Image.fromarray(image[c])
 
-            image[c],
-
+        channel = channel.resize(
             (PATCH_SIZE, PATCH_SIZE),
+            resample=Image.BILINEAR,
+        )
 
-            interpolation=cv2.INTER_LINEAR,
-
+        resized[c] = np.asarray(
+            channel,
+            dtype=np.float32,
         )
 
     return resized
@@ -109,9 +111,13 @@ def build_model_input(
     float32
     """
 
-    sentinel = prepare_sentinel(sentinel)
+    sentinel = prepare_sentinel(
+        sentinel
+    )
 
-    thermal = prepare_thermal(thermal)
+    thermal = prepare_thermal(
+        thermal
+    )
 
     combined = np.concatenate(
 
